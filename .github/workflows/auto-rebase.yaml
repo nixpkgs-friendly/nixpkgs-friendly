@@ -1,0 +1,47 @@
+name: nixos-unstable-rebase
+on:
+  push:
+    branches:
+      - friendly
+    paths:
+      - .github/workflows/auto-rebase.yaml
+  schedule: # https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule
+    - cron: '30 0/8 * * *'
+  workflow_dispatch:
+# permissions: write-all # Fix-Me: refusing to allow a GitHub App to create or update workflow
+#                        #         `.github/workflows/backport.yml` without `workflows` permission
+jobs:
+  nixos-unstable-rebase:
+    runs-on: ubuntu-latest
+    environment: BOT
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.TOKEN_BOT }}
+
+      - name: nixos-unstable-rebase
+        # env:
+        #   GITHUB_TOKEN: ${{ secrets.TOKEN_BOT }}
+        run: |
+          git config --global user.name 'UpdateBot'
+          git config --global user.email 'superherointj@users.noreply.github.com'
+          echo "=== Initializing nixpkgs/nixos-unstable ==="
+          git remote add upstream https://github.com/NixOS/nixpkgs.git
+          git fetch upstream nixos-unstable
+          echo "=== Fetching nixpkgs-friendly/friendly ==="
+          git fetch origin friendly
+          echo "=== Resetting hard origin/friendly ==="
+          git reset --hard origin/friendly
+          echo "=== Final nixpkgs/nixos-unstable refresh ==="
+          git fetch upstream nixos-unstable
+          echo "=== Pre-Rebase ==="
+          git log -n10 --oneline
+          echo "=== Rebasing ==="
+          git rebase upstream/nixos-unstable
+          echo "=== Post-Rebase ==="
+          git log -n10 --oneline
+          echo "=== Pushing Changes ==="
+          git push --force-with-lease origin HEAD:friendly
+
+# Fix-Me: Enable cache for remote git repository.
